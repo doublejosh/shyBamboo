@@ -21,31 +21,32 @@
 #define PIN3 4 // LED Pixel strand 3
 #define PIN4 5 // LED Pixel strand 4
 #define PIN5 6 // LED Pixel strand 5
-#define trigPin 8 // Echo: Trigger Pin
-#define echoPin 9 // Echo: Echo Pin
+#define trigPin1 8 // Sensor: Trigger Pin 1
+#define echoPin1 9 // Sensor: Echo Pin 1
+#define trigPin2 10 // Sensor: Trigger Pin 2
+#define echoPin2 11 // Sensor: Echo Pin 3
 #define PIN_LED 13 // Debug LED
 
-const uint8_t moveThreshhold = 15,  // Debounce the range fluxtuation
+const uint8_t moveThreshhold = 8,  // Debounce the range fluxtuation
   maximumRange = 200, // Maximum range needed
   minimumRange = 0, // Minimum range needed
-  NUM_LEDS = 60, // Strand length
-  OFFSET_1 = 0, // Strand offset to first pixel 1
+  NUM_LEDS = 90, // Strand length
+  OFFSET_1 = 215, // Strand offset to first pixel 1
   OFFSET_2 = 0, // Strand offset to first pixel 2
-  OFFSET_3 = 30, // Strand offset to first pixel 3
-  OFFSET_4 = 60, // Strand offset to first pixel 4
-  OFFSET_5 = 60, // Strand offset to first pixel 5
+  OFFSET_3 = 50, // Strand offset to first pixel 3
+  OFFSET_4 = 150, // Strand offset to first pixel 4
+  OFFSET_5 = 150, // Strand offset to first pixel 5
   bambooSize = 10, // Length of first bamboo segment
   delayed = 50;
 
 uint32_t bambooColor, bambooDark;
-long duration, distance, prev_distance;
 boolean debug = true;
 
 Adafruit_NeoPixel strip1 = Adafruit_NeoPixel(NUM_LEDS + OFFSET_1, PIN1, NEO_GRB + NEO_KHZ800);
-Adafruit_NeoPixel strip2 = Adafruit_NeoPixel(NUM_LEDS + OFFSET_2, PIN2, NEO_GRB + NEO_KHZ800),
-Adafruit_NeoPixel strip3 = Adafruit_NeoPixel(NUM_LEDS + OFFSET_3, PIN3, NEO_GRB + NEO_KHZ800),
-Adafruit_NeoPixel strip4 = Adafruit_NeoPixel(NUM_LEDS + OFFSET_4, PIN4, NEO_GRB + NEO_KHZ800),
-Adafruit_NeoPixel strip5 = Adafruit_NeoPixel(NUM_LEDS + OFFSET_5, PIN5, NEO_GRB + NEO_KHZ800);
+//Adafruit_NeoPixel strip2 = Adafruit_NeoPixel(NUM_LEDS + OFFSET_2, PIN2, NEO_GRB + NEO_KHZ800),
+//Adafruit_NeoPixel strip3 = Adafruit_NeoPixel(NUM_LEDS + OFFSET_3, PIN3, NEO_GRB + NEO_KHZ800),
+//Adafruit_NeoPixel strip4 = Adafruit_NeoPixel(NUM_LEDS + OFFSET_4, PIN4, NEO_GRB + NEO_KHZ800),
+//Adafruit_NeoPixel strip5 = Adafruit_NeoPixel(NUM_LEDS + OFFSET_5, PIN5, NEO_GRB + NEO_KHZ800);
 
 
 void setup() {
@@ -61,8 +62,8 @@ void setup() {
   //strip5.show();
 
   // Echo sensor.
-  pinMode(trigPin, OUTPUT);
-  pinMode(echoPin, INPUT);
+  pinMode(trigPin1, OUTPUT);
+  pinMode(echoPin1, INPUT);
 
   if (debug) {
     Serial.begin (9600);
@@ -71,28 +72,26 @@ void setup() {
   }
 
   // Initial plant look.
-  bambooColor = Wheel(200);
-  bambooDark = Wheel(0);
+  bambooColor = strip1.Color(0, 80, 0);
+  bambooDark = strip1.Color(0, 10, 0);
   resetBamboo();
 }
 
 
 void loop() {
-  uint32_t randomColor, randomPixel;
+  uint32_t randomColor = Wheel(random(0, 256));
+  uint16_t randomPixel = random(0, NUM_LEDS);
 
   // @todo Avoid random pixels on bamboo stock gaps.
 
   if (!checkMovement()) {
     // Set random pixel to random color.
-    strip1.setPixelColor(random(0, NUM_LEDS) + OFFSET_1, Wheel(random(0, 256)));
-    strip2.setPixelColor(random(0, NUM_LEDS) + OFFSET_2, Wheel(random(0, 256)));
-    strip3.setPixelColor(random(0, NUM_LEDS) + OFFSET_3, Wheel(random(0, 256)));
-    strip4.setPixelColor(random(0, NUM_LEDS) + OFFSET_4, Wheel(random(0, 256)));
-    strip5.setPixelColor(random(0, NUM_LEDS) + OFFSET_5, Wheel(random(0, 256)));
-
-    if (debug) {
-      digitalWrite(PIN_LED, HIGH);
-    }
+    strip1.setPixelColor(randomPixel + OFFSET_1, randomColor);
+//    strip2.setPixelColor(random(0, NUM_LEDS) + OFFSET_2, Wheel(random(0, 256)));
+//    strip3.setPixelColor(random(0, NUM_LEDS) + OFFSET_3, Wheel(random(0, 256)));
+//    strip4.setPixelColor(random(0, NUM_LEDS) + OFFSET_4, Wheel(random(0, 256)));
+//    strip5.setPixelColor(random(0, NUM_LEDS) + OFFSET_5, Wheel(random(0, 256)));
+    strip1.show();
   }
   else {
     resetBamboo();
@@ -107,7 +106,7 @@ void loop() {
 void resetBamboo() {
   uint8_t i;
 
-  for (i=0; i>NUM_LEDS; i++) {
+  for (i=0; i<NUM_LEDS; i++) {
     if (i % bambooSize == 0) {
       setAllStrands(i, bambooDark); // Gap in bamboo color
     }
@@ -115,6 +114,7 @@ void resetBamboo() {
       setAllStrands(i, bambooColor); // Bamboo color to strand 2
     }
   }
+  strip1.show();
 
   if (debug) {
     digitalWrite(PIN_LED, LOW);
@@ -125,12 +125,20 @@ void resetBamboo() {
 /**
  * DRY, multiple bamboo shoots.
  */
-void setAllStrands(pixel, color) {
+void setAllStrands(uint16_t pixel, uint32_t color) {
+
+  if (debug) {
+    Serial.print("RESET ");
+    Serial.print(pixel + OFFSET_1);
+    Serial.print(" -- ");
+    Serial.println(color);
+  }
+  
   strip1.setPixelColor(pixel + OFFSET_1, color);
-  strip2.setPixelColor(pixel + OFFSET_2, color);
-  strip3.setPixelColor(pixel + OFFSET_3, color);
-  strip4.setPixelColor(pixel + OFFSET_4, color);
-  strip5.setPixelColor(pixel + OFFSET_5, color);
+//  strip2.setPixelColor(pixel + OFFSET_2, color);
+//  strip3.setPixelColor(pixel + OFFSET_3, color);
+//  strip4.setPixelColor(pixel + OFFSET_4, color);
+//  strip5.setPixelColor(pixel + OFFSET_5, color);
 }
 
 
@@ -140,28 +148,25 @@ void setAllStrands(pixel, color) {
  * @todo Maybe remove distance min-max boundaries.
  */
 boolean checkMovement() {
-  long test_distance;
+  long duration, distance, prev_distance;
   
   // Trigger-echo cycle to find distance of nearest object.
-  digitalWrite(trigPin, LOW); 
+  digitalWrite(trigPin1, LOW); 
   delayMicroseconds(2); 
-  digitalWrite(trigPin, HIGH);
+  digitalWrite(trigPin1, HIGH);
   delayMicroseconds(10); 
-  digitalWrite(trigPin, LOW);
-  duration = pulseIn(echoPin, HIGH);
+  digitalWrite(trigPin1, LOW);
+  duration = pulseIn(echoPin1, HIGH);
 
   // Calculate the distance (in cm), based on speed of sound.
-  distance = duration / 58.2;
-
-  // Save for checking threshold later.
-  test_distance = prev_distance;
-  prev_distance = distance;
+  distance = (duration/2) / 29.1;
 
   // Outside of boundaries.
   if (distance >= maximumRange || distance <= minimumRange) {
     // Send a negative number to indicate out of range.
     if (debug) {
-      Serial.println("-1");
+      Serial.print("-1, ");
+      Serial.println(distance);
     }
     return false;
   }
@@ -170,7 +175,7 @@ boolean checkMovement() {
       Serial.println(distance);
     }
     // Check for movement.
-    if (abs(distance - test_distance) > moveThreshhold) {
+    if (abs(distance - prev_distance) > moveThreshhold) {
       // Considered movement.
       Serial.print("STARTLED!  ");
       Serial.println(prev_distance);
@@ -179,6 +184,8 @@ boolean checkMovement() {
     // Considered noise by threshhold.
     return false;
   }
+
+  prev_distance = distance;
 }
 
 
