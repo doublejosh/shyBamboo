@@ -37,10 +37,12 @@ const uint8_t moveThreshhold = 8,  // Debounce the range fluxtuation
   OFFSET_4 = 150, // Strand offset to first pixel 4
   OFFSET_5 = 150, // Strand offset to first pixel 5
   bambooSize = 10, // Length of first bamboo segment
-  delayed = 50;
+  shyCycles = 40,
+  delayed = 100;
 
 uint32_t bambooColor, bambooDark;
 boolean debug = true;
+uint8_t shyCounter;
 
 Adafruit_NeoPixel strip1 = Adafruit_NeoPixel(NUM_LEDS + OFFSET_1, PIN1, NEO_GRB + NEO_KHZ800);
 //Adafruit_NeoPixel strip2 = Adafruit_NeoPixel(NUM_LEDS + OFFSET_2, PIN2, NEO_GRB + NEO_KHZ800),
@@ -84,17 +86,25 @@ void loop() {
 
   // @todo Avoid random pixels on bamboo stock gaps.
 
+  // Carry on sparkling.
   if (!checkMovement()) {
-    // Set random pixel to random color.
-    strip1.setPixelColor(randomPixel + OFFSET_1, randomColor);
+    // Shy period.
+    if (shyCounter < shyCycles) {
+      shyCounter++;
+    }
+    else {
+      // Set random pixel to random color.
+      strip1.setPixelColor(randomPixel + OFFSET_1, randomColor);
 //    strip2.setPixelColor(random(0, NUM_LEDS) + OFFSET_2, Wheel(random(0, 256)));
 //    strip3.setPixelColor(random(0, NUM_LEDS) + OFFSET_3, Wheel(random(0, 256)));
 //    strip4.setPixelColor(random(0, NUM_LEDS) + OFFSET_4, Wheel(random(0, 256)));
 //    strip5.setPixelColor(random(0, NUM_LEDS) + OFFSET_5, Wheel(random(0, 256)));
-    strip1.show();
+      strip1.show();
+    }
   }
   else {
     resetBamboo();
+    shyCounter = 0;
   }
   delay(delayed);
 }
