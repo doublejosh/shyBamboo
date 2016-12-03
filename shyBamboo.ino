@@ -28,16 +28,17 @@
 #define PIN_LED 13 // Debug LED
 
 const uint8_t moveThreshhold = 8,  // Debounce the range fluxtuation
-  maximumRange = 200, // Maximum range needed
-  minimumRange = 0, // Minimum range needed
-  NUM_LEDS = 90, // Strand length
-  OFFSET_1 = 215, // Strand offset to first pixel 1
-  OFFSET_2 = 0, // Strand offset to first pixel 2
-  OFFSET_3 = 50, // Strand offset to first pixel 3
-  OFFSET_4 = 150, // Strand offset to first pixel 4
-  OFFSET_5 = 150, // Strand offset to first pixel 5
-  bambooSize = 10, // Length of first bamboo segment
-  shyCycles = 40,
+  maximumRange = 200,              // Maximum range needed
+  minimumRange = 0,                // Minimum range needed
+  NUM_LEDS = 90,                   // Strand length
+  OFFSET_1 = 215,                  // Strand offset to first pixel 1
+  OFFSET_2 = 0,                    // Strand offset to first pixel 2
+  OFFSET_3 = 50,                   // Strand offset to first pixel 3
+  OFFSET_4 = 150,                  // Strand offset to first pixel 4
+  OFFSET_5 = 150,                  // Strand offset to first pixel 5
+  bambooSizeInit = 20,             // Length of first bamboo segment
+  bambooSizeSegmentDiff = -2,      // Each subsequent segment is decreased in size by this amount
+  shyCycles = 50,
   delayed = 100;
 
 uint32_t bambooColor, bambooDark;
@@ -75,7 +76,7 @@ void setup() {
 
   // Initial plant look.
   bambooColor = strip1.Color(0, 80, 0);
-  bambooDark = strip1.Color(0, 10, 0);
+  bambooDark = strip1.Color(0, 0, 0);
   resetBamboo();
 }
 
@@ -94,11 +95,14 @@ void loop() {
     }
     else {
       // Set random pixel to random color.
-      strip1.setPixelColor(randomPixel + OFFSET_1, randomColor);
-//    strip2.setPixelColor(random(0, NUM_LEDS) + OFFSET_2, Wheel(random(0, 256)));
-//    strip3.setPixelColor(random(0, NUM_LEDS) + OFFSET_3, Wheel(random(0, 256)));
-//    strip4.setPixelColor(random(0, NUM_LEDS) + OFFSET_4, Wheel(random(0, 256)));
-//    strip5.setPixelColor(random(0, NUM_LEDS) + OFFSET_5, Wheel(random(0, 256)));
+      if (strip1.getPixelColor(randomPixel+ OFFSET_1) != bambooDark) {
+        strip1.setPixelColor(randomPixel + OFFSET_1, randomColor);
+//      strip2.setPixelColor(random(0, NUM_LEDS) + OFFSET_2, Wheel(random(0, 256)));
+//      strip3.setPixelColor(random(0, NUM_LEDS) + OFFSET_3, Wheel(random(0, 256)));
+//      strip4.setPixelColor(random(0, NUM_LEDS) + OFFSET_4, Wheel(random(0, 256)));
+//      strip5.setPixelColor(random(0, NUM_LEDS) + OFFSET_5, Wheel(random(0, 256)));
+
+      }
       strip1.show();
     }
   }
@@ -114,16 +118,19 @@ void loop() {
  * Reset LEDs to look like bamboo.
  */
 void resetBamboo() {
-  uint8_t i;
 
-  for (i=0; i<NUM_LEDS; i++) {
-    if (i % bambooSize == 0) {
-      setAllStrands(i, bambooDark); // Gap in bamboo color
-    }
-    else {
+  uint8_t i;
+  uint8_t bambooSize = bambooSizeInit;
+
+  for (i = 0; i < NUM_LEDS; ++i) {
       setAllStrands(i, bambooColor); // Bamboo color to strand 2
-    }
   }
+
+  for (i = 0; i < NUM_LEDS; i += bambooSize) {
+      setAllStrands(i, bambooDark); // Gap in bamboo color
+      bambooSize += bambooSizeSegmentDiff;
+  }
+
   strip1.show();
 
   if (debug) {
