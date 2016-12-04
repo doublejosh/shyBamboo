@@ -27,26 +27,27 @@
 #define echoPin2 11 // Sensor: Echo Pin 3
 #define PIN_LED 13 // Debug LED
 
-const uint8_t moveThreshhold = 8,  // Debounce the range fluxtuation
-  maximumRange = 200,              // Maximum range needed
+const uint8_t moveThreshhold = 16,  // Debounce the range fluxtuation
+  maximumRange = 180,              // Maximum range needed
   minimumRange = 0,                // Minimum range needed
   NUM_LEDS = 90,                   // Strand length
   OFFSET_1 = 215,                  // Strand offset to first pixel 1
-  OFFSET_2 = 0,                    // Strand offset to first pixel 2
-  OFFSET_3 = 50,                   // Strand offset to first pixel 3
+  OFFSET_2 = 120,                    // Strand offset to first pixel 2
+  OFFSET_3 = 0,                   // Strand offset to first pixel 3
   OFFSET_4 = 150,                  // Strand offset to first pixel 4
   OFFSET_5 = 150,                  // Strand offset to first pixel 5
   bambooSizeInit = 20,             // Length of first bamboo segment
   bambooSizeSegmentDiff = -2,      // Each subsequent segment is decreased in size by this amount
-  shyCycles = 50,
+  shyCycles = 40,
   delayed = 100;
 
 uint32_t bambooColor, bambooDark;
 boolean debug = true;
 uint8_t shyCounter;
+long prevDistance = 0;
 
-Adafruit_NeoPixel strip1 = Adafruit_NeoPixel(NUM_LEDS + OFFSET_1, PIN1, NEO_GRB + NEO_KHZ800);
-//Adafruit_NeoPixel strip2 = Adafruit_NeoPixel(NUM_LEDS + OFFSET_2, PIN2, NEO_GRB + NEO_KHZ800),
+Adafruit_NeoPixel strip1 = Adafruit_NeoPixel(NUM_LEDS + OFFSET_1, PIN1, NEO_GRB + NEO_KHZ800),
+  strip2 = Adafruit_NeoPixel(NUM_LEDS + OFFSET_2, PIN2, NEO_GRB + NEO_KHZ800);
 //Adafruit_NeoPixel strip3 = Adafruit_NeoPixel(NUM_LEDS + OFFSET_3, PIN3, NEO_GRB + NEO_KHZ800),
 //Adafruit_NeoPixel strip4 = Adafruit_NeoPixel(NUM_LEDS + OFFSET_4, PIN4, NEO_GRB + NEO_KHZ800),
 //Adafruit_NeoPixel strip5 = Adafruit_NeoPixel(NUM_LEDS + OFFSET_5, PIN5, NEO_GRB + NEO_KHZ800);
@@ -54,12 +55,12 @@ Adafruit_NeoPixel strip1 = Adafruit_NeoPixel(NUM_LEDS + OFFSET_1, PIN1, NEO_GRB 
 
 void setup() {
   strip1.begin();
-  //strip2.begin();
+  strip2.begin();
   //strip3.begin();
   //strip4.begin();
   //strip5.begin();
   strip1.show();
-  //strip2.show();
+  strip2.show();
   //strip3.show();
   //strip4.show();
   //strip5.show();
@@ -85,7 +86,7 @@ void loop() {
   uint32_t randomColor = Wheel(random(0, 256));
   uint16_t randomPixel = random(0, NUM_LEDS);
 
-  // @todo Avoid random pixels on bamboo stock gaps.
+  // @todo Avoid same random pixel on all stocks.
 
   // Carry on sparkling.
   if (!checkMovement()) {
@@ -97,13 +98,17 @@ void loop() {
       // Set random pixel to random color.
       if (strip1.getPixelColor(randomPixel+ OFFSET_1) != bambooDark) {
         strip1.setPixelColor(randomPixel + OFFSET_1, randomColor);
-//      strip2.setPixelColor(random(0, NUM_LEDS) + OFFSET_2, Wheel(random(0, 256)));
+        strip2.setPixelColor(random(0, NUM_LEDS) + OFFSET_2, Wheel(random(0, 256)));
 //      strip3.setPixelColor(random(0, NUM_LEDS) + OFFSET_3, Wheel(random(0, 256)));
 //      strip4.setPixelColor(random(0, NUM_LEDS) + OFFSET_4, Wheel(random(0, 256)));
 //      strip5.setPixelColor(random(0, NUM_LEDS) + OFFSET_5, Wheel(random(0, 256)));
 
       }
       strip1.show();
+      strip2.show();
+//      strip3.show();
+//      strip4.show();
+//      strip5.show();
     }
   }
   else {
@@ -118,20 +123,23 @@ void loop() {
  * Reset LEDs to look like bamboo.
  */
 void resetBamboo() {
-
-  uint8_t i;
-  uint8_t bambooSize = bambooSizeInit;
+  uint8_t i,
+    bambooSize = bambooSizeInit;
 
   for (i = 0; i < NUM_LEDS; ++i) {
-      setAllStrands(i, bambooColor); // Bamboo color to strand 2
+    setAllStrands(i, bambooColor); // Bamboo color to strand 2
   }
 
   for (i = 0; i < NUM_LEDS; i += bambooSize) {
-      setAllStrands(i, bambooDark); // Gap in bamboo color
-      bambooSize += bambooSizeSegmentDiff;
+    setAllStrands(i, bambooDark); // Gap in bamboo color
+    bambooSize += bambooSizeSegmentDiff;
   }
 
   strip1.show();
+  strip2.show();
+//  strip3.show();
+//  strip4.show();
+//  strip5.show();
 
   if (debug) {
     digitalWrite(PIN_LED, LOW);
@@ -144,15 +152,15 @@ void resetBamboo() {
  */
 void setAllStrands(uint16_t pixel, uint32_t color) {
 
-  if (debug) {
-    Serial.print("RESET ");
-    Serial.print(pixel + OFFSET_1);
-    Serial.print(" -- ");
-    Serial.println(color);
-  }
+//  if (debug) {
+//    Serial.print("RESET ");
+//    Serial.print(pixel + OFFSET_1);
+//    Serial.print(" -- ");
+//    Serial.println(color);
+//  }
   
   strip1.setPixelColor(pixel + OFFSET_1, color);
-//  strip2.setPixelColor(pixel + OFFSET_2, color);
+  strip2.setPixelColor(pixel + OFFSET_2, color);
 //  strip3.setPixelColor(pixel + OFFSET_3, color);
 //  strip4.setPixelColor(pixel + OFFSET_4, color);
 //  strip5.setPixelColor(pixel + OFFSET_5, color);
@@ -162,10 +170,14 @@ void setAllStrands(uint16_t pixel, uint32_t color) {
 /**
  * Detect movement with distance sensor.
  * 
- * @todo Maybe remove distance min-max boundaries.
+ * Accept a range of valid distance to trigger reaction.
+ * 
+ * Out of range is considered movement (the desired effect is only display with an audience).
+ * 
+ * @todo Rolling average rather than prevDistance.
  */
 boolean checkMovement() {
-  long duration, distance, prev_distance;
+  long duration, distance;
   
   // Trigger-echo cycle to find distance of nearest object.
   digitalWrite(trigPin1, LOW); 
@@ -185,24 +197,26 @@ boolean checkMovement() {
       Serial.print("-1, ");
       Serial.println(distance);
     }
-    return false;
+    return true;
   }
   else {
     if (debug) {
       Serial.println(distance);
     }
     // Check for movement.
-    if (abs(distance - prev_distance) > moveThreshhold) {
+    if ((distance > 0) && (abs(prevDistance - distance) > moveThreshhold)) {
       // Considered movement.
       Serial.print("STARTLED!  ");
-      Serial.println(prev_distance);
+      Serial.println(prevDistance);
+          // Track past.
+      prevDistance = distance;
       return true;
     }
+    prevDistance = distance;
+
     // Considered noise by threshhold.
     return false;
   }
-
-  prev_distance = distance;
 }
 
 
@@ -212,15 +226,15 @@ boolean checkMovement() {
  */
 uint32_t Wheel(byte WheelPos) {
   if (WheelPos < 85) {
-   return strip1.Color(WheelPos * 3, 255 - WheelPos * 3, 0);
+    return strip1.Color(WheelPos * 3, 255 - WheelPos * 3, 0);
   }
   else if (WheelPos < 170) {
-   WheelPos -= 85;
-   return strip1.Color(255 - WheelPos * 3, 0, WheelPos * 3);
+    WheelPos -= 85;
+    return strip1.Color(255 - WheelPos * 3, 0, WheelPos * 3);
   }
   else {
-   WheelPos -= 170;
-   return strip1.Color(0, WheelPos * 3, 255 - WheelPos * 3);
+    WheelPos -= 170;
+    return strip1.Color(0, WheelPos * 3, 255 - WheelPos * 3);
   }
 }
 
