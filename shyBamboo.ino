@@ -46,24 +46,33 @@ boolean debug = true;
 uint8_t shyCounter;
 uint8_t prevDistance = 0;
 
-Adafruit_NeoPixel strip1 = Adafruit_NeoPixel(NUM_LEDS + OFFSET_1, PIN1, NEO_GRB + NEO_KHZ800),
-  strip2 = Adafruit_NeoPixel(NUM_LEDS + OFFSET_2, PIN2, NEO_GRB + NEO_KHZ800);
+#define LIGHT_STRIP_COUNT 2
+Adafruit_NeoPixel lightStrips[LIGHT_STRIP_COUNT] = {
+  Adafruit_NeoPixel(NUM_LEDS + OFFSET_1, PIN1, NEO_GRB + NEO_KHZ800),
+  Adafruit_NeoPixel(NUM_LEDS + OFFSET_2, PIN2, NEO_GRB + NEO_KHZ800),
+  // Adafruit_NeoPixel(NUM_LEDS + OFFSET_3, PIN3, NEO_GRB + NEO_KHZ800),
+  // Adafruit_NeoPixel(NUM_LEDS + OFFSET_4, PIN4, NEO_GRB + NEO_KHZ800),
+  // Adafruit_NeoPixel(NUM_LEDS + OFFSET_5, PIN5, NEO_GRB + NEO_KHZ800)
+};
+
+Adafruit_NeoPixel colorStrip = lightStrips[0];
+
+//Adafruit_NeoPixel strip1 = Adafruit_NeoPixel(NUM_LEDS + OFFSET_1, PIN1, NEO_GRB + NEO_KHZ800),
+//  strip2 = Adafruit_NeoPixel(NUM_LEDS + OFFSET_2, PIN2, NEO_GRB + NEO_KHZ800);
   //strip3 = Adafruit_NeoPixel(NUM_LEDS + OFFSET_3, PIN3, NEO_GRB + NEO_KHZ800);
   //strip4 = Adafruit_NeoPixel(NUM_LEDS + OFFSET_4, PIN4, NEO_GRB + NEO_KHZ800);
 //Adafruit_NeoPixel strip5 = Adafruit_NeoPixel(NUM_LEDS + OFFSET_5, PIN5, NEO_GRB + NEO_KHZ800);
 
 
 void setup() {
-  strip1.begin();
-  strip2.begin();
-  //strip3.begin();
-  //strip4.begin();
-  //strip5.begin();
-  strip1.show();
-  strip2.show();
-  //strip3.show();
-  //strip4.show();
-  //strip5.show();
+
+  for (int i = 0; i < LIGHT_STRIP_COUNT; ++i) {
+    lightStrips[i].begin();
+  }
+
+  for (int i = 0; i < LIGHT_STRIP_COUNT; ++i) {
+    lightStrips[i].show();
+  }
 
   // Echo sensor.
   pinMode(trigPin1, OUTPUT);
@@ -76,14 +85,14 @@ void setup() {
   }
 
   // Initial plant look.
-  bambooColor = strip1.Color(0, 80, 0);
-  bambooDark = strip1.Color(0, 0, 0);
+  bambooColor = lightStrips[0].Color(0, 80, 0);
+  bambooDark = lightStrips[0].Color(0, 0, 0);
   resetBamboo();
 }
 
 
 void loop() {
-  uint32_t randomColor = Wheel(random(0, 256));
+  uint32_t randomColor = Wheel(random(0, 255));
   uint16_t randomPixel = random(0, NUM_LEDS);
 
   // @todo Avoid same random pixel on all stocks.
@@ -96,19 +105,18 @@ void loop() {
     }
     else {
       // Set random pixel to random color.
-      if (strip1.getPixelColor(randomPixel+ OFFSET_1) != bambooDark) {
-        strip1.setPixelColor(randomPixel + OFFSET_1, randomColor);
-        strip2.setPixelColor(random(0, NUM_LEDS) + OFFSET_2, Wheel(random(0, 256)));
-        //strip3.setPixelColor(random(0, NUM_LEDS) + OFFSET_3, Wheel(random(0, 256)));
-        //strip4.setPixelColor(random(0, NUM_LEDS) + OFFSET_4, Wheel(random(0, 256)));
-        //strip5.setPixelColor(random(0, NUM_LEDS) + OFFSET_5, Wheel(random(0, 256)));
+      if (colorStrip.getPixelColor(randomPixel + OFFSET_1) != bambooDark) {
+        lightStrips[0].setPixelColor(randomPixel + OFFSET_1, randomColor);
+        lightStrips[1].setPixelColor(random(0, NUM_LEDS) + OFFSET_2, Wheel(random(0, 255)));
+        //strip3.setPixelColor(random(0, NUM_LEDS) + OFFSET_3, Wheel(random(0, 255)));
+        //strip4.setPixelColor(random(0, NUM_LEDS) + OFFSET_4, Wheel(random(0, 255)));
+        //strip5.setPixelColor(random(0, NUM_LEDS) + OFFSET_5, Wheel(random(0, 255)));
 
       }
-      strip1.show();
-      strip2.show();
-      //strip3.show();
-      //strip4.show();
-      //strip5.show();
+
+      for (int i = 0; i < LIGHT_STRIP_COUNT; ++i) {
+        lightStrips[i].show();
+      }
     }
   }
   else {
@@ -135,11 +143,9 @@ void resetBamboo() {
     bambooSize += bambooSizeSegmentDiff;
   }
 
-  strip1.show();
-  strip2.show();
-  //strip3.show();
-  //strip4.show();
-  //strip5.show();
+  for (int i = 0; i < LIGHT_STRIP_COUNT; ++i) {
+    lightStrips[i].show();
+  }
 
 //  if (debug) {
 //    digitalWrite(PIN_LED, LOW);
@@ -151,11 +157,9 @@ void resetBamboo() {
  * DRY, multiple bamboo shoots.
  */
 void setAllStrands(uint16_t pixel, uint32_t color) {
-  strip1.setPixelColor(pixel + OFFSET_1, color);
-  strip2.setPixelColor(pixel + OFFSET_2, color);
-  //strip3.setPixelColor(pixel + OFFSET_3, color);
-  //strip4.setPixelColor(pixel + OFFSET_4, color);
-  //strip5.setPixelColor(pixel + OFFSET_5, color);
+  for (int i = 0; i < LIGHT_STRIP_COUNT; ++i) {
+    lightStrips[i].setPixelColor(pixel + OFFSET_1, color);
+  }
 }
 
 
@@ -223,15 +227,15 @@ boolean checkMovement() {
  */
 uint32_t Wheel(byte WheelPos) {
   if (WheelPos < 85) {
-    return strip1.Color(WheelPos * 3, 255 - WheelPos * 3, 0);
+    return colorStrip.Color(WheelPos * 3, 255 - WheelPos * 3, 0);
   }
   else if (WheelPos < 170) {
     WheelPos -= 85;
-    return strip1.Color(255 - WheelPos * 3, 0, WheelPos * 3);
+    return colorStrip.Color(255 - WheelPos * 3, 0, WheelPos * 3);
   }
   else {
     WheelPos -= 170;
-    return strip1.Color(0, WheelPos * 3, 255 - WheelPos * 3);
+    return colorStrip.Color(0, WheelPos * 3, 255 - WheelPos * 3);
   }
 }
 
