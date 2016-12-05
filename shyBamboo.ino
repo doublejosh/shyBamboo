@@ -3,16 +3,15 @@
  * 
  * Josh Lind, 11/2016
  * 
- * RGB LED Pixel stands and echo distance sensor.
+ * RGB LED Pixel stands and echo distance sensors.
  * 
- * @todo Apply color dim in stalk gaps rather than single dark color.
+ * 
+ * Reduce NeoPixel burnout risk by adding a 1000 uF capacitor across pixel
+ * power leads, add 300 - 500 Ohm resistor on first pixel's data input.
+ * Avoid connecting on a live circuit... if you must, connect GND first.
+ * 
+ * @todo Random bamboo height assignment.
  */
-
-// @TODO
-// Reduce NeoPixel burnout risk, add 1000 uF capacitor across
-// pixel power leads, add 300 - 500 Ohm resistor on first pixel's data input
-// and minimize distance between Arduino and first pixel.  Avoid connecting
-// on a live circuit...if you must, connect GND first.
 
 #include <Adafruit_NeoPixel.h>
 
@@ -21,49 +20,78 @@
 #define PIN3 4 // LED Pixel strand 3
 #define PIN4 5 // LED Pixel strand 4
 #define PIN5 6 // LED Pixel strand 5
-#define trigPin1 8 // Sensor: Trigger Pin 1
-#define echoPin1 9 // Sensor: Echo Pin 1
-#define trigPin2 10 // Sensor: Trigger Pin 2
-#define echoPin2 11 // Sensor: Echo Pin 3
+#define trigPin1 10  // Sensor: Trigger Pin 1
+#define echoPin1 11  // Sensor: Echo Pin 1
+//#define trigPin2 12  // Sensor: Trigger Pin 2
+//#define echoPin2 13  // Sensor: Echo Pin 3
 //#define PIN_LED 13 // Debug LED
 
-const uint8_t moveThreshhold = 16, // Debounce the range fluxtuation
+const uint8_t moveThreshhold = 10, // Debounce the range fluxtuation
   maximumRange = 120,              // Maximum range needed
   minimumRange = 10,               // Minimum range needed
-  NUM_LEDS = 90,                   // Strand length
-  OFFSET_1 = 215,                  // Strand offset to first pixel 1
-  OFFSET_2 = 120,                  // Strand offset to first pixel 2
-  OFFSET_3 = 0,                    // Strand offset to first pixel 3
-  OFFSET_4 = 150,                  // Strand offset to first pixel 4
-  OFFSET_5 = 150,                  // Strand offset to first pixel 5
-  bambooSizeInit = 20,             // Length of first bamboo segment
-  bambooSizeSegmentDiff = -2,      // Each subsequent segment is decreased in size by this amount
-  shyCycles = 40,
-  delayed = 50;
+  shyCycles = 180,
+  delayed = 10;
+
+const int8_t bambooSizeSegmentDiff = -2; // Decrease in bamboo segment length per piece
+
+const uint16_t NUM_LEDS = 83, // Strand length
+  bambooSizeInit = 20,         // Length of first bamboo segment
+  OFFSET_1 = 16,               // Strand E
+  OFFSET_2 = 20, //216,         // Strand B
+  OFFSET_3 = 0, //34,         // Strand A
+  OFFSET_4 = 0,                // Strand C
+  OFFSET_5 = 15;               // Strand D
 
 uint32_t bambooColor, bambooDark;
-boolean debug = true;
 uint8_t shyCounter;
 uint8_t prevDistance = 0;
 
-Adafruit_NeoPixel strip1 = Adafruit_NeoPixel(NUM_LEDS + OFFSET_1, PIN1, NEO_GRB + NEO_KHZ800),
-  strip2 = Adafruit_NeoPixel(NUM_LEDS + OFFSET_2, PIN2, NEO_GRB + NEO_KHZ800);
-  //strip3 = Adafruit_NeoPixel(NUM_LEDS + OFFSET_3, PIN3, NEO_GRB + NEO_KHZ800);
-  //strip4 = Adafruit_NeoPixel(NUM_LEDS + OFFSET_4, PIN4, NEO_GRB + NEO_KHZ800);
-//Adafruit_NeoPixel strip5 = Adafruit_NeoPixel(NUM_LEDS + OFFSET_5, PIN5, NEO_GRB + NEO_KHZ800);
+boolean debug = true;
+
+Adafruit_NeoPixel strip1 = Adafruit_NeoPixel(100, PIN1, NEO_GRB + NEO_KHZ800),
+  strip2 = Adafruit_NeoPixel(130, PIN2, NEO_GRB + NEO_KHZ800),
+  strip3 = Adafruit_NeoPixel(100, PIN3, NEO_GRB + NEO_KHZ800),
+  strip4 = Adafruit_NeoPixel(100, PIN4, NEO_GRB + NEO_KHZ800),
+  strip5 = Adafruit_NeoPixel(100, PIN5, NEO_GRB + NEO_KHZ800);
 
 
 void setup() {
+  uint8_t i;
+
+  randomSeed(analogRead(0));
+
+  // Used for plants and off.
+  bambooColor = strip1.Color(0, 80, 0);
+  bambooDark = strip1.Color(0, 0, 0);
+
   strip1.begin();
   strip2.begin();
-  //strip3.begin();
-  //strip4.begin();
-  //strip5.begin();
+  strip3.begin();
+  strip4.begin();
+  strip5.begin();
+
+  // Reset everything to off.
+//  for (i = 0; i < OFFSET_1; i++) {
+//    strip1.setPixelColor(i, bambooDark);
+//  }
+//  for (i = 0; i < OFFSET_2; i++) {
+//    strip2.setPixelColor(i, bambooDark);
+//  }
+//  for (i = 0; i < OFFSET_3; i++) {
+//    strip3.setPixelColor(i, bambooDark);
+//  }
+//  for (i = 0; i < OFFSET_4; i++) {
+//    strip4.setPixelColor(i, bambooDark);
+//  }
+//  for (i = 0; i < OFFSET_5; i++) {
+//    strip5.setPixelColor(i, bambooDark);
+//  }
+
   strip1.show();
   strip2.show();
-  //strip3.show();
-  //strip4.show();
-  //strip5.show();
+  strip3.show();
+  strip4.show();
+  strip5.show();
 
   // Echo sensor.
   pinMode(trigPin1, OUTPUT);
@@ -76,15 +104,17 @@ void setup() {
   }
 
   // Initial plant look.
-  bambooColor = strip1.Color(0, 80, 0);
-  bambooDark = strip1.Color(0, 0, 0);
   resetBamboo();
 }
 
 
 void loop() {
-  uint32_t randomColor = Wheel(random(0, 256));
-  uint16_t randomPixel = random(0, NUM_LEDS);
+  uint32_t randomColor = Wheel(random(256));
+  uint8_t randomPixel1 = random(NUM_LEDS),
+    randomPixel2 = random(NUM_LEDS),
+    randomPixel3 = random(NUM_LEDS),
+    randomPixel4 = random(NUM_LEDS),
+    randomPixel5 = random(NUM_LEDS);
 
   // @todo Avoid same random pixel on all stocks.
 
@@ -96,19 +126,26 @@ void loop() {
     }
     else {
       // Set random pixel to random color.
-      if (strip1.getPixelColor(randomPixel+ OFFSET_1) != bambooDark) {
-        strip1.setPixelColor(randomPixel + OFFSET_1, randomColor);
-        strip2.setPixelColor(random(0, NUM_LEDS) + OFFSET_2, Wheel(random(0, 256)));
-        //strip3.setPixelColor(random(0, NUM_LEDS) + OFFSET_3, Wheel(random(0, 256)));
-        //strip4.setPixelColor(random(0, NUM_LEDS) + OFFSET_4, Wheel(random(0, 256)));
-        //strip5.setPixelColor(random(0, NUM_LEDS) + OFFSET_5, Wheel(random(0, 256)));
-
+      if (strip1.getPixelColor(randomPixel1 + OFFSET_1) != bambooDark) {
+        strip1.setPixelColor(randomPixel1 + OFFSET_1, randomColor);
+        strip1.show();
       }
-      strip1.show();
-      strip2.show();
-      //strip3.show();
-      //strip4.show();
-      //strip5.show();
+      if (strip2.getPixelColor(randomPixel2 + OFFSET_2) != bambooDark) {
+        strip2.setPixelColor(randomPixel2 + OFFSET_2, randomColor);
+        strip2.show();
+      }
+      if (strip3.getPixelColor(randomPixel3 + OFFSET_3) != bambooDark) {
+        strip3.setPixelColor(randomPixel3 + OFFSET_3, randomColor);
+        strip3.show();
+      }
+      if (strip4.getPixelColor(randomPixel4 + OFFSET_4) != bambooDark) {
+        strip4.setPixelColor(randomPixel4 + OFFSET_4, randomColor);
+        strip4.show();
+      }
+      if (strip5.getPixelColor(randomPixel5 + OFFSET_5) != bambooDark) {
+        strip5.setPixelColor(randomPixel5 + OFFSET_5, randomColor);
+        strip5.show();
+      }
     }
   }
   else {
@@ -126,20 +163,21 @@ void resetBamboo() {
   uint8_t i,
     bambooSize = bambooSizeInit;
 
-  for (i = 0; i < NUM_LEDS; ++i) {
+  for (i = 0; i < NUM_LEDS; i++) {
     setAllStrands(i, bambooColor); // Bamboo color to strand 2
   }
 
-  for (i = 0; i < NUM_LEDS; i += bambooSize) {
-    setAllStrands(i, bambooDark); // Gap in bamboo color
-    bambooSize += bambooSizeSegmentDiff;
-  }
+  // Bamboo segments.
+//  for (i = 0; i < NUM_LEDS; i += bambooSize) {
+//    setAllStrands(i, bambooDark); // Gap in bamboo color
+//    bambooSize += bambooSizeSegmentDiff;
+//  }
 
   strip1.show();
   strip2.show();
-  //strip3.show();
-  //strip4.show();
-  //strip5.show();
+  strip3.show();
+  strip4.show();
+  strip5.show();
 
 //  if (debug) {
 //    digitalWrite(PIN_LED, LOW);
@@ -153,9 +191,9 @@ void resetBamboo() {
 void setAllStrands(uint16_t pixel, uint32_t color) {
   strip1.setPixelColor(pixel + OFFSET_1, color);
   strip2.setPixelColor(pixel + OFFSET_2, color);
-  //strip3.setPixelColor(pixel + OFFSET_3, color);
-  //strip4.setPixelColor(pixel + OFFSET_4, color);
-  //strip5.setPixelColor(pixel + OFFSET_5, color);
+  strip3.setPixelColor(pixel + OFFSET_3, color);
+  strip4.setPixelColor(pixel + OFFSET_4, color);
+  strip5.setPixelColor(pixel + OFFSET_5, color);
 }
 
 
@@ -170,7 +208,7 @@ void setAllStrands(uint16_t pixel, uint32_t color) {
  */
 boolean checkMovement() {
   long duration;
-  uint8_t distance;
+  uint16_t distance;
   
   // Trigger-echo cycle to find distance of nearest object.
   digitalWrite(trigPin1, LOW); 
